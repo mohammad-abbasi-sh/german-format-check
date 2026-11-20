@@ -1,0 +1,81 @@
+---
+description: Catch English-style formatting inside German text — English decimals (29.99 instead of 29,99), US dates (11/20/2026 instead of 20.11.2026), 12-hour times (2:30 PM instead of 14:30 Uhr), currency before the amount (EUR 29.99 instead of 29,99 €), ASCII substitutes for umlauts (Muenchen instead of München), English month names (January instead of Januar), straight quotes, missing spaces before units (20°C), and 8 more rules (GFC-01..GFC-15), each with an automatic fix, plus German formatters for numbers, money, dates and phones. Apply when an agent writes, translates, edits or reviews German text — a blog post, an email, a product description, a form, a contract draft, UI strings — or before publishing anything in German.
+globs: "**/*.{py,js,ts,tsx,md,mdx,txt,html,csv,json}"
+alwaysApply: false
+---
+
+# German format check — stop shipping German text formatted like English
+
+## The contract
+
+1. **Check first, with the tool — never eyeball it.** Run the checker
+   (zero-dependency, Python stdlib only):
+
+   ```bash
+   python3 scripts/german_format_check.py check text-de.txt
+   python3 scripts/german_format_check.py check --json - < text-de.txt
+   ```
+
+   Exit codes: `0` = clean · `1` = errors found (or warnings, with
+   `--strict`) · `2` = usage error. Each finding names its rule code,
+   its position and its suggested fix.
+2. **Fix with the tool, then re-check.** Never hand-edit a fix the
+   tool can make:
+
+   ```bash
+   python3 scripts/german_format_check.py fix text-de.txt > text-de.fixed.txt
+   python3 scripts/german_format_check.py check text-de.fixed.txt
+   ```
+
+   `fix` applies the fixes and re-checks internally until the text
+   is clean. Do not report a text as fixed until `check` exits 0.
+3. **Format new values with the formatters, never by hand.**
+
+   ```bash
+   python3 scripts/german_format_check.py format-number 1234.56   # 1.234,56
+   python3 scripts/german_format_check.py format-money 29.99 EUR  # 29,99 €
+   python3 scripts/german_format_check.py format-date 2026-11-20   # 20.11.2026
+   python3 scripts/german_format_check.py format-phone +493012345678  # +49 30 12345678
+   ```
+
+## The 15 rules
+
+| Code | Rule | Wrong | Right |
+|------|------|-------|-------|
+| GFC-01 | English decimal point | 29.99 · 1,234.56 | 29,99 · 1.234,56 |
+| GFC-02 | English thousands comma | 1,234 | 1.234 |
+| GFC-03 | Currency before amount | €29.99 · EUR 29.99 | 29,99 € |
+| GFC-04 | US date | 11/20/2026 · November 20, 2026 | 20.11.2026 |
+| GFC-05 | 12-hour time | 2:30 PM · 9:15 AM | 14:30 Uhr · 09:15 Uhr |
+| GFC-06 | Percent without space (DIN 5008) | 19% | 19 % |
+| GFC-07 | US-style phone | (030) 123-4567 · +49-30-1234567 | 030 1234567 · +49 30 1234567 |
+| GFC-08 | Postal code | D-10115 · Berlin, 10115 | 10115 · 10115 Berlin |
+| GFC-09 | ASCII umlaut/ß substitutes | Muenchen · Strasse · weiss | München · Straße · weiß |
+| GFC-10 | English month names | January · March · October | Januar · März · Oktober |
+| GFC-11 | English ordinals | 1st · 2nd · 3rd | 1. · 2. · 3. |
+| GFC-12 | Straight double quotes | "Hallo" | „Hallo“ |
+| GFC-13 | Missing space before unit | 20°C · 10km · 5kg | 20 °C · 10 km · 5 kg |
+| GFC-14 | "VAT" in German text | VAT | USt. |
+| GFC-15 | Day number without dot | 20 November 2026 | 20. November 2026 |
+
+Severity: GFC-06, GFC-09, GFC-12 and GFC-14 are **warnings** — they
+do not fail the build unless `--strict` is passed. The other eleven
+are **errors**.
+
+## Limits — say them in every report
+
+- **ISO dates in code are fine.** `2026-11-20` is never flagged.
+- **ASCII substitutes are warnings, not errors.** `Muenchen` in a
+  URL, an e-mail address, a username or source code is correct —
+  only fix them in prose.
+- **The quotes fix needs paired quotes.** A lone `"` is left alone.
+- **November, December, August, September and April are spelled
+  the same in English and German** and are never flagged.
+- **The phone formatter guesses the area-code length** (2 digits
+  for Berlin/Hamburg/Frankfurt/München, 3 for mobiles and most
+  other landlines). Check small-town area codes by hand.
+- **German-only (de-DE).** Swiss German (de-CH) and Austrian
+  addresses differ — roadmap, not v1.
+
+See `skills/german-format-check/SKILL.md` for the full contract
+and `references/formatting-rules.md` for why each rule exists.
